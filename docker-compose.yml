@@ -1,0 +1,76 @@
+name: jobops
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: jobops_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_DB_PASSWORD: ${DB_POSTGRESDB_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 512m
+    cpus: "0.75"
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: jobops_n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      N8N_PORT: ${N8N_PORT}
+      N8N_TIMEZONE: ${N8N_TIMEZONE}
+      N8N_DIAGNOSTICS_ENABLED: ${N8N_DIAGNOSTICS_ENABLED}
+      EXECUTIONS_PROCESS: ${EXECUTIONS_PROCESS}
+      N8N_CONCURRENCY: ${N8N_CONCURRENCY}
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: ${EXECUTIONS_DATA_SAVE_ON_SUCCESS}
+      EXECUTIONS_DATA_SAVE_ON_ERROR: ${EXECUTIONS_DATA_SAVE_ON_ERROR}
+      NODE_OPTIONS: ${NODE_OPTIONS}
+      # DB interne n8n sur Postgres
+      DB_TYPE: ${DB_TYPE}
+      DB_POSTGRESDB_HOST: ${DB_POSTGRESDB_HOST}
+      DB_POSTGRESDB_PORT: ${DB_POSTGRESDB_PORT}
+      DB_POSTGRESDB_DATABASE: ${DB_POSTGRESDB_DATABASE}
+      DB_POSTGRESDB_USER: ${DB_POSTGRESDB_USER}
+      DB_POSTGRESDB_PASSWORD: ${DB_POSTGRESDB_PASSWORD}
+      # chiffrement des credentials
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    mem_limit: 1024m
+    cpus: "1.0"
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: jobops_metabase
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_started
+    environment:
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS}
+    ports:
+      - "${METABASE_PORT:-3000}:3000"
+    volumes:
+      - mbdata:/metabase-data
+    mem_limit: 512m
+    cpus: "0.75"
+
+volumes:
+  pgdata:
+  n8n_data:
+  mbdata:

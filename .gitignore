@@ -1,0 +1,5 @@
+.env
+pgdata/
+n8n_data/
+mbdata/
+.DS_Store
